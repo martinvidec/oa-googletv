@@ -9,9 +9,8 @@ class VoiceViewModelTest {
 
     private class FakeRecognizer(var available: Boolean = true) : VoiceRecognizer {
         private var listenerField: VoiceRecognizer.Listener? = null
-        var listener: VoiceRecognizer.Listener?
+        val listener: VoiceRecognizer.Listener?
             get() = listenerField
-            set(value) { listenerField = value }
         var started = 0
         var stopped = 0
         var cancelled = 0
