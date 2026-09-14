@@ -39,14 +39,8 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      # Nutzt den eingecheckten Wrapper (Gradle 8.11.1) und validiert gradle-wrapper.jar.
       - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.11.1'
-      - name: Gradle-Wrapper erzeugen (falls nicht eingecheckt)
-        run: |
-          if [ ! -f gradlew ]; then
-            gradle wrapper --gradle-version 8.11.1 --distribution-type bin
-          fi
       - name: assembleDebug
         run: ./gradlew assembleDebug --stacktrace
       - uses: actions/upload-artifact@v4
