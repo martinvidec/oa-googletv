@@ -13,6 +13,7 @@ class VoiceViewModelTest {
         var stopped = 0
         var cancelled = 0
 
+        @JvmName("setListenerImpl")
         override fun setListener(listener: VoiceRecognizer.Listener?) {
             this.listener = listener
         }
