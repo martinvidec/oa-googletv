@@ -24,14 +24,19 @@ die über den `LEANBACK_LAUNCHER` im TV-Launcher erscheint, mit Banner und App-I
 
 ## Gradle-Wrapper
 
-Der Gradle-Wrapper (`gradlew`, `gradle/wrapper/`) ist noch **nicht** eingecheckt. Einmalig mit
-einer lokalen Gradle-Installation erzeugen:
+Der Gradle-Wrapper (`gradlew`, `gradlew.bat`, `gradle/wrapper/`) ist eingecheckt und auf
+Gradle 8.11.1 festgelegt. Eine lokale Gradle-Installation ist **nicht** nötig: `./gradlew` lädt
+beim ersten Aufruf die passende Distribution (Prüfsumme in
+`gradle/wrapper/gradle-wrapper.properties`). Unter Windows `gradlew.bat` statt `./gradlew`.
+
+Die CI nutzt denselben Wrapper (`.github/workflows/ci.yml`, Job `android-build`) und validiert
+dabei die Prüfsumme von `gradle-wrapper.jar`.
+
+Gradle-Version aktualisieren (ändert die Wrapper-Dateien, danach committen):
 
 ```bash
-gradle wrapper --gradle-version 8.11.1 --distribution-type bin
+./gradlew wrapper --gradle-version <version> --distribution-type bin
 ```
-
-Die CI macht denselben Schritt vor jedem Build (`.github/workflows/ci.yml`, Job `android-build`).
 
 ## Build
 
