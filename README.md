@@ -10,7 +10,7 @@ die über den `LEANBACK_LAUNCHER` im TV-Launcher erscheint, mit Banner und App-I
 | | |
 |---|---|
 | Sprache | Kotlin 2.0.21 |
-| Build | Gradle 8.11.1, Android Gradle Plugin 8.7.3 (Versionen in `gradle/libs.versions.toml`) |
+| Build | Gradle 8.11.1 (Version in `gradle/wrapper/gradle-wrapper.properties`), Android Gradle Plugin 8.7.3 (Version in `gradle/libs.versions.toml`) |
 | SDK | `minSdk` 21, `compileSdk`/`targetSdk` 35 |
 | JDK | 17 |
 | Package | `org.openaustria.googletv` (Debug: `org.openaustria.googletv.debug`) |
@@ -32,11 +32,17 @@ beim ersten Aufruf die passende Distribution (Prüfsumme in
 Die CI nutzt denselben Wrapper (`.github/workflows/ci.yml`, Job `android-build`) und validiert
 dabei die Prüfsumme von `gradle-wrapper.jar`.
 
-Gradle-Version aktualisieren (ändert die Wrapper-Dateien, danach committen):
+Gradle-Version aktualisieren (ändert die Wrapper-Dateien, danach committen). Die Prüfsumme
+immer mitgeben, sonst entfernt der Task `distributionSha256Sum` aus
+`gradle-wrapper.properties`. Den Wert für die `-bin.zip` der Zielversion von
+<https://gradle.org/release-checksums/> nehmen:
 
 ```bash
-./gradlew wrapper --gradle-version <version> --distribution-type bin
+./gradlew wrapper --gradle-version <version> --distribution-type bin --gradle-distribution-sha256-sum <sha256>
 ```
+
+Für die aktuell festgelegte Version 8.11.1 lautet die Prüfsumme
+`f397b287023acdba1e9f6fc5ea72d22dd63669d59ed4a289a29b1a76eee151c6`.
 
 ## Build
 

@@ -1,0 +1,15 @@
+# Zeilenenden normalisieren: im Repo LF, im Checkout je nach Dateityp.
+* text=auto
+
+# Shell-Skripte immer LF, sonst bricht ./gradlew unter Unix ab.
+gradlew text eol=lf
+*.sh text eol=lf
+
+# Batch-Dateien immer CRLF, sonst funktionieren cmd-Sprungmarken (goto/call :label) nicht.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binärdateien nie konvertieren.
+*.jar binary
+*.png binary
+*.webp binary
