@@ -8,14 +8,16 @@ import org.junit.Test
 class VoiceViewModelTest {
 
     private class FakeRecognizer(var available: Boolean = true) : VoiceRecognizer {
-        var listener: VoiceRecognizer.Listener? = null
+        private var listenerField: VoiceRecognizer.Listener? = null
+        var listener: VoiceRecognizer.Listener?
+            get() = listenerField
+            set(value) { listenerField = value }
         var started = 0
         var stopped = 0
         var cancelled = 0
 
-        @JvmName("setListenerImpl")
         override fun setListener(listener: VoiceRecognizer.Listener?) {
-            this.listener = listener
+            this.listenerField = listener
         }
 
         override fun isAvailable() = available
