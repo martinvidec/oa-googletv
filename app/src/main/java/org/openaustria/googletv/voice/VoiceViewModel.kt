@@ -85,13 +85,10 @@ class VoiceViewModel(
 
     override fun onError(error: VoiceError) {
         if (!isRecognizing()) return
-        setOverlay(
-            if (error == VoiceError.PERMISSION) {
-                VoiceOverlay.PermissionDenied(permanently = false)
-            } else {
-                VoiceOverlay.Error(error)
-            }
-        )
+        // PERMISSION kommt hier vom Erkennungsdienst: Die App selbst hat RECORD_AUDIO bereits
+        // (sonst wäre start() nie aufgerufen worden). Erneut anfragen würde nur denselben Fehler
+        // wiederholen, deshalb als eigener Fehler statt als PermissionDenied.
+        setOverlay(VoiceOverlay.Error(error))
     }
 
     override fun onCleared() {

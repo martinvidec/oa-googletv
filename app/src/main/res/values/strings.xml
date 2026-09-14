@@ -24,5 +24,6 @@
     <string name="voice_error_audio">Das Mikrofon konnte nicht verwendet werden.</string>
     <string name="voice_error_busy">Die Spracherkennung ist gerade belegt.</string>
     <string name="voice_error_not_available">Auf diesem Gerät ist keine Spracherkennung verfügbar.</string>
+    <string name="voice_error_permission">Der Spracherkennungsdienst hat keinen Zugriff auf das Mikrofon. Bitte in den Einstellungen die Berechtigungen der Spracherkennung und den Mikrofonzugriff prüfen.</string>
     <string name="voice_error_other">Bei der Spracherkennung ist ein Fehler aufgetreten.</string>
 </resources>

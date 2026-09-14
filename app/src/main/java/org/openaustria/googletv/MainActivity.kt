@@ -24,6 +24,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
+import org.openaustria.googletv.voice.PermissionDenialTracker
 import org.openaustria.googletv.voice.VoiceError
 import org.openaustria.googletv.voice.VoiceOverlay
 import org.openaustria.googletv.voice.VoiceUiState
@@ -53,16 +54,15 @@ class MainActivity : FragmentActivity() {
     /** Zuletzt gerenderter Overlay-Zustand; Fokus wird nur bei einem Zustandswechsel neu gesetzt. */
     private var renderedOverlay: VoiceOverlay? = null
 
+    private val permissionTracker = PermissionDenialTracker()
+
     private val requestAudioPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
+                permissionTracker.onGranted()
                 viewModel.startListening()
             } else {
-                // Nach endgültiger Ablehnung zeigt das System keinen Dialog mehr und keine Begründung.
-                val permanently = !ActivityCompat.shouldShowRequestPermissionRationale(
-                    this, Manifest.permission.RECORD_AUDIO
-                )
-                viewModel.onPermissionDenied(permanently)
+                viewModel.onPermissionDenied(permissionTracker.onDenied(shouldShowAudioRationale()))
             }
         }
 
@@ -75,6 +75,10 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        savedInstanceState?.let {
+            permissionTracker.rationaleBeforeRequest = it.getBoolean(KEY_RATIONALE_BEFORE_REQUEST)
+            permissionTracker.deniedWithoutRationale = it.getBoolean(KEY_DENIED_WITHOUT_RATIONALE)
+        }
 
         mainContent = findViewById(R.id.main_content)
         voiceButton = findViewById(R.id.voice_button)
@@ -99,19 +103,31 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        // Der Permission-Dialog überlebt eine Neuerstellung der Activity, das Ergebnis kommt dann hier an.
+        outState.putBoolean(KEY_RATIONALE_BEFORE_REQUEST, permissionTracker.rationaleBeforeRequest)
+        outState.putBoolean(KEY_DENIED_WITHOUT_RATIONALE, permissionTracker.deniedWithoutRationale)
+    }
+
     override fun onStop() {
         super.onStop()
         // Im Hintergrund nicht weiter aufnehmen; beim Zurückkehren startet der Nutzer neu.
         viewModel.dismissOverlay()
     }
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        // Such-Taste der Fernbedienung öffnet die Spracheingabe direkt.
-        if (keyCode == KeyEvent.KEYCODE_SEARCH && viewModel.uiState.value.overlay is VoiceOverlay.Hidden) {
-            onVoiceRequested()
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // Such-Taste vor Views und System abfangen: Die Default-Behandlung startet sonst beim Loslassen
+        // die Systemsuche, die Activity geht in onStop und das offene Overlay schließt sich.
+        if (event.keyCode == KeyEvent.KEYCODE_SEARCH) {
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 &&
+                viewModel.uiState.value.overlay is VoiceOverlay.Hidden
+            ) {
+                onVoiceRequested()
+            }
             return true
         }
-        return super.onKeyDown(keyCode, event)
+        return super.dispatchKeyEvent(event)
     }
 
     private fun onVoiceRequested() {
@@ -120,16 +136,24 @@ class MainActivity : FragmentActivity() {
         if (granted) {
             viewModel.startListening()
         } else {
+            permissionTracker.onRequest(shouldShowAudioRationale())
             requestAudioPermission.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
+
+    private fun shouldShowAudioRationale(): Boolean =
+        ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.RECORD_AUDIO)
 
     /** Primäraktion des Overlays: Orb und Aktions-Button verhalten sich gleich. */
     private fun onOverlayAction() {
         when (val overlay = viewModel.uiState.value.overlay) {
             is VoiceOverlay.Listening -> viewModel.stopListening()
-            is VoiceOverlay.Error ->
-                if (overlay.error != VoiceError.NOT_AVAILABLE) onVoiceRequested()
+            is VoiceOverlay.Error -> when (overlay.error) {
+                VoiceError.NOT_AVAILABLE -> Unit
+                // Die App hat die Berechtigung schon; erneut anfragen oder starten liefe in denselben Fehler.
+                VoiceError.PERMISSION -> openSystemSettings()
+                else -> onVoiceRequested()
+            }
             is VoiceOverlay.PermissionDenied ->
                 if (overlay.permanently) openAppSettings() else onVoiceRequested()
             VoiceOverlay.Hidden, is VoiceOverlay.Processing -> Unit
@@ -142,7 +166,15 @@ class MainActivity : FragmentActivity() {
             startActivity(intent)
         } catch (e: ActivityNotFoundException) {
             // Manche TV-Oberflächen haben keine App-Detailseite; dann die allgemeinen Einstellungen.
+            openSystemSettings()
+        }
+    }
+
+    private fun openSystemSettings() {
+        try {
             startActivity(Intent(Settings.ACTION_SETTINGS))
+        } catch (e: ActivityNotFoundException) {
+            // Ohne Einstellungs-App bleibt nur „Schließen" als Ausweg.
         }
     }
 
@@ -157,29 +189,40 @@ class MainActivity : FragmentActivity() {
             if (visible) ViewGroup.FOCUS_BLOCK_DESCENDANTS else ViewGroup.FOCUS_AFTER_DESCENDANTS
         closeOverlayOnBack.isEnabled = visible
 
+        val previous = renderedOverlay
+        renderedOverlay = overlay
+        val overlayChanged = previous == null || previous::class != overlay::class
+        if (overlayChanged) {
+            // showListening() setzt Pegel und Skalierung des Orbs zurück. Pro Pegel-Tick aufgerufen,
+            // würde es Glättung und Abklingen von setSoundLevel aushebeln — daher nur beim Wechsel.
+            if (overlay is VoiceOverlay.Listening) voiceOrb.showListening() else voiceOrb.showNotListening()
+        }
+
         when (overlay) {
-            VoiceOverlay.Hidden -> voiceOrb.showNotListening()
+            VoiceOverlay.Hidden -> Unit
             is VoiceOverlay.Listening -> {
-                voiceOrb.showListening()
                 voiceOrb.setSoundLevel(overlay.soundLevel)
                 voiceStatus.setText(if (overlay.ready) R.string.voice_listening else R.string.voice_preparing)
                 showTranscript(overlay.partialText)
                 showAction(R.string.voice_action_done)
             }
             is VoiceOverlay.Processing -> {
-                voiceOrb.showNotListening()
                 voiceStatus.setText(R.string.voice_processing)
                 showTranscript(overlay.partialText)
                 showAction(null)
             }
             is VoiceOverlay.Error -> {
-                voiceOrb.showNotListening()
                 voiceStatus.setText(errorMessage(overlay.error))
                 showTranscript("")
-                showAction(if (overlay.error == VoiceError.NOT_AVAILABLE) null else R.string.voice_action_retry)
+                showAction(
+                    when (overlay.error) {
+                        VoiceError.NOT_AVAILABLE -> null
+                        VoiceError.PERMISSION -> R.string.voice_action_settings
+                        else -> R.string.voice_action_retry
+                    }
+                )
             }
             is VoiceOverlay.PermissionDenied -> {
-                voiceOrb.showNotListening()
                 voiceStatus.setText(
                     if (overlay.permanently) R.string.voice_permission_denied_permanently
                     else R.string.voice_permission_denied
@@ -192,9 +235,7 @@ class MainActivity : FragmentActivity() {
             }
         }
 
-        val previous = renderedOverlay
-        renderedOverlay = overlay
-        if (previous == null || previous::class != overlay::class) moveFocus(overlay)
+        if (overlayChanged) moveFocus(overlay)
     }
 
     private fun moveFocus(overlay: VoiceOverlay) {
@@ -221,8 +262,13 @@ class MainActivity : FragmentActivity() {
         VoiceError.NETWORK -> R.string.voice_error_network
         VoiceError.AUDIO -> R.string.voice_error_audio
         VoiceError.BUSY -> R.string.voice_error_busy
-        VoiceError.PERMISSION -> R.string.voice_permission_denied
+        VoiceError.PERMISSION -> R.string.voice_error_permission
         VoiceError.NOT_AVAILABLE -> R.string.voice_error_not_available
         VoiceError.OTHER -> R.string.voice_error_other
+    }
+
+    private companion object {
+        const val KEY_RATIONALE_BEFORE_REQUEST = "rationale_before_request"
+        const val KEY_DENIED_WITHOUT_RATIONALE = "denied_without_rationale"
     }
 }

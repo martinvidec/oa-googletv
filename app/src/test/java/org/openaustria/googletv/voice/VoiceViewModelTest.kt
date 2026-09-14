@@ -110,10 +110,11 @@ class VoiceViewModelTest {
     }
 
     @Test
-    fun `recognizer permission error maps to permission denied`() {
+    fun `recognizer permission error is shown as error without new permission request`() {
         viewModel.startListening()
         viewModel.onError(VoiceError.PERMISSION)
-        assertEquals(VoiceOverlay.PermissionDenied(permanently = false), overlay)
+        assertEquals(VoiceOverlay.Error(VoiceError.PERMISSION), overlay)
+        assertEquals(1, recognizer.started)
     }
 
     @Test
