@@ -43,6 +43,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: assembleDebug
         run: ./gradlew assembleDebug --stacktrace
+      - name: Unit-Tests
+        run: ./gradlew testDebugUnitTest --stacktrace
       - uses: actions/upload-artifact@v4
         with:
           name: app-debug

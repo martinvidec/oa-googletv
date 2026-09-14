@@ -2,4 +2,27 @@
 <resources>
     <string name="app_name">Open Austria TV</string>
     <string name="welcome">Open Austria TV</string>
+
+    <!-- Spracheingabe -->
+    <string name="voice_start">Spracheingabe</string>
+    <string name="voice_hint">Auswählen oder die Such-Taste der Fernbedienung drücken</string>
+    <string name="voice_result_label">Erkannter Text</string>
+    <string name="voice_result_empty">Noch keine Eingabe</string>
+    <string name="voice_orb_description">Mikrofon</string>
+    <string name="voice_preparing">Einen Moment …</string>
+    <string name="voice_listening">Ich höre zu …</string>
+    <string name="voice_processing">Wird erkannt …</string>
+    <string name="voice_action_done">Fertig</string>
+    <string name="voice_action_retry">Erneut versuchen</string>
+    <string name="voice_action_allow">Mikrofon erlauben</string>
+    <string name="voice_action_settings">Einstellungen öffnen</string>
+    <string name="voice_action_close">Schließen</string>
+    <string name="voice_permission_denied">Für die Spracheingabe braucht die App Zugriff auf das Mikrofon.</string>
+    <string name="voice_permission_denied_permanently">Der Mikrofonzugriff wurde abgelehnt. Bitte in den App-Einstellungen erlauben.</string>
+    <string name="voice_error_no_match">Das habe ich nicht verstanden. Bitte noch einmal sprechen.</string>
+    <string name="voice_error_network">Keine Verbindung zur Spracherkennung.</string>
+    <string name="voice_error_audio">Das Mikrofon konnte nicht verwendet werden.</string>
+    <string name="voice_error_busy">Die Spracherkennung ist gerade belegt.</string>
+    <string name="voice_error_not_available">Auf diesem Gerät ist keine Spracherkennung verfügbar.</string>
+    <string name="voice_error_other">Bei der Spracherkennung ist ein Fehler aufgetreten.</string>
 </resources>
