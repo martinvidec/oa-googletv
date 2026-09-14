@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App-Icon (Platzhalter-Grafik). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="@color/oa_background"
+        android:pathData="M0,0h48v48h-48z" />
+    <path
+        android:fillColor="@color/oa_accent"
+        android:pathData="M8,14h32v7h-32z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M8,21h32v6h-32z" />
+    <path
+        android:fillColor="@color/oa_accent"
+        android:pathData="M8,27h32v7h-32z" />
+</vector>

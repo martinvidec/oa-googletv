@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher-Banner für Android TV (320x180 dp, 16:9). Platzhalter-Grafik. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+    <path
+        android:fillColor="@color/oa_background"
+        android:pathData="M0,0h320v180h-320z" />
+    <!-- rot-weiß-roter Streifen -->
+    <path
+        android:fillColor="@color/oa_accent"
+        android:pathData="M40,60h240v20h-240z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M40,80h240v20h-240z" />
+    <path
+        android:fillColor="@color/oa_accent"
+        android:pathData="M40,100h240v20h-240z" />
+</vector>
