@@ -5,6 +5,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -128,6 +129,86 @@ class ChatViewModelTest {
     fun `retry without failed message does nothing`() {
         viewModel.retry()
         assertTrue(client.requests.isEmpty())
+    }
+
+    @Test
+    fun `retry of an older message moves it to the end so the reply lands at the autoscroll target`() {
+        viewModel.send("A")
+        client.respond(HermesResult.Failure(HermesError.UNREACHABLE))
+        viewModel.send("B")
+        client.respond(HermesResult.Success("antwort B"))
+
+        viewModel.retry()
+        assertEquals(listOf("B", "antwort B", "A"), texts)
+        assertEquals(listOf("B", "antwort B", "A"), client.requests.last().map { it.text })
+        assertEquals(state.messages.last().id, state.newestMessageId)
+
+        client.respond(HermesResult.Success("antwort A"))
+        assertEquals(listOf("B", "antwort B", "A", "antwort A"), texts)
+        assertEquals(state.messages.last().id, state.newestMessageId)
+    }
+
+    @Test
+    fun `every failed message can be retried by id`() {
+        viewModel.send("eins")
+        client.respond(HermesResult.Failure(HermesError.TIMEOUT))
+        viewModel.send("zwei")
+        client.respond(HermesResult.Failure(HermesError.TIMEOUT))
+
+        viewModel.retry(state.messages.first().id)
+        assertEquals(listOf("zwei", "eins"), texts)
+        assertEquals(listOf(MessageStatus.FAILED, MessageStatus.PENDING), state.messages.map { it.status })
+        assertEquals(listOf("eins"), client.requests.last().map { it.text })
+    }
+
+    @Test
+    fun `retry by id ignores messages that did not fail`() {
+        viewModel.send("eins")
+        client.respond(HermesResult.Success("ok"))
+        client.requests.clear()
+
+        viewModel.retry(state.messages.first().id)
+        assertTrue(client.requests.isEmpty())
+        assertEquals(listOf("eins", "ok"), texts)
+    }
+
+    @Test
+    fun `retrying the same message again is a new autoscroll target`() {
+        viewModel.send("Hallo")
+        client.respond(HermesResult.Failure(HermesError.TIMEOUT))
+        viewModel.retry()
+        val firstRetry = state.newestMessageId
+        client.respond(HermesResult.Failure(HermesError.TIMEOUT))
+        viewModel.retry()
+
+        assertNotEquals(firstRetry, state.newestMessageId)
+        assertEquals(state.messages.single().id, state.newestMessageId)
+    }
+
+    @Test
+    fun `autoscroll target follows the latest added message`() {
+        assertNull(state.newestMessageId)
+        viewModel.send("eins")
+        assertEquals(state.messages[0].id, state.newestMessageId)
+        viewModel.send("zwei")
+        assertEquals(state.messages[1].id, state.newestMessageId)
+
+        client.respond(HermesResult.Success("antwort eins"))
+        assertEquals("antwort eins", state.messages.single { it.id == state.newestMessageId }.text)
+        client.respond(HermesResult.Success("antwort zwei"))
+        assertEquals(state.messages.last().id, state.newestMessageId)
+    }
+
+    @Test
+    fun `same error twice in a row is a new error event`() {
+        viewModel.send("eins")
+        client.respond(HermesResult.Failure(HermesError.NOT_CONFIGURED))
+        val first = state.errorId
+        viewModel.send("zwei")
+        client.respond(HermesResult.Failure(HermesError.NOT_CONFIGURED))
+
+        assertEquals(HermesError.NOT_CONFIGURED, state.error)
+        assertNotEquals(first, state.errorId)
     }
 
     @Test

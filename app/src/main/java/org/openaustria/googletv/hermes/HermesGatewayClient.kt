@@ -1,5 +1,6 @@
 package org.openaustria.googletv.hermes
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -24,6 +25,9 @@ class HermesGatewayClient(
 
     override suspend fun send(settings: HermesSettings, history: List<ChatMessage>): HermesResult {
         if (!settings.isConfigured) return HermesResult.Failure(HermesError.NOT_CONFIGURED)
+        // Vor dem Request prüfen: HttpURLConnection lehnt so einen Header mit einer
+        // IllegalArgumentException ab, die sonst wie ein Adressproblem aussähe.
+        if (!HermesSettings.isValidToken(settings.token)) return HermesResult.Failure(HermesError.INVALID_TOKEN)
         if (!isOnline()) return HermesResult.Failure(HermesError.OFFLINE)
 
         return withContext(dispatcher) {
@@ -38,8 +42,12 @@ class HermesGatewayClient(
                 HermesResult.Failure(HermesError.TIMEOUT)
             } catch (e: IOException) {
                 HermesResult.Failure(HermesError.UNREACHABLE)
-            } catch (e: IllegalArgumentException) {
-                // HttpURLConnection meldet z. B. einen ungültigen Port so statt als IOException.
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: RuntimeException) {
+                // Letzter Fallback: HttpURLConnection meldet manche Verbindungsprobleme (z. B. einen
+                // ungültigen Port) als IllegalArgumentException oder IllegalStateException statt als
+                // IOException. Die App darf daran nicht abstürzen.
                 HermesResult.Failure(HermesError.UNREACHABLE)
             }
         }

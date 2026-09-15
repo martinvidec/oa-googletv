@@ -35,6 +35,9 @@ enum class HermesError {
     /** HTTP 401/403: Token fehlt oder ist ungültig. */
     UNAUTHORIZED,
 
+    /** Das Token enthält Zeichen, die in einem HTTP-Header nicht erlaubt sind (Zeilenumbruch, Umlaute …). */
+    INVALID_TOKEN,
+
     /** Sonstiger HTTP-Fehlerstatus des Gateways. */
     SERVER,
 

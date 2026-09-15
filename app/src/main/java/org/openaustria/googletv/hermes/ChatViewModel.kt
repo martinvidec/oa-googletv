@@ -37,24 +37,36 @@ class ChatViewModel(
     fun send(text: String) {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return
-        val message = ChatMessage(nextId++, ChatRole.USER, trimmed, MessageStatus.PENDING)
-        _uiState.value = _uiState.value.let { it.copy(messages = it.messages + message, error = null) }
-        deliver(message.id)
+        enqueue(ChatMessage(nextId++, ChatRole.USER, trimmed, MessageStatus.PENDING), _uiState.value.messages)
     }
 
-    /** Sendet die zuletzt fehlgeschlagene Nachricht erneut, ohne sie doppelt in den Verlauf zu legen. */
-    fun retry() {
-        val state = _uiState.value
-        val failed = state.messages.lastOrNull { it.status == MessageStatus.FAILED } ?: return
-        _uiState.value = state.copy(
-            messages = state.messages.withStatus(failed.id, MessageStatus.PENDING),
-            error = null,
+    /**
+     * Sendet die fehlgeschlagene Nachricht [messageId] erneut, ohne Angabe die zuletzt fehlgeschlagene.
+     * Sie wandert als neue Nachricht ans Ende des Verlaufs: Die Anfrage schickt so den aktuellen Verlauf
+     * mit, und die Antwort erscheint dort, wohin der Autoscroll springt — nicht unsichtbar mittendrin.
+     */
+    fun retry(messageId: Long? = null) {
+        val messages = _uiState.value.messages
+        val failed = messages.lastOrNull {
+            it.status == MessageStatus.FAILED && (messageId == null || it.id == messageId)
+        } ?: return
+        enqueue(
+            failed.copy(id = nextId++, status = MessageStatus.PENDING),
+            messages.filter { it.id != failed.id },
         )
-        deliver(failed.id)
     }
 
     fun dismissError() {
         _uiState.value = _uiState.value.copy(error = null)
+    }
+
+    private fun enqueue(message: ChatMessage, previous: List<ChatMessage>) {
+        _uiState.value = _uiState.value.copy(
+            messages = previous + message,
+            error = null,
+            newestMessageId = message.id,
+        )
+        deliver(message.id)
     }
 
     private fun deliver(messageId: Long) {
@@ -86,14 +98,16 @@ class ChatViewModel(
         if (index < 0) return
         _uiState.value = when (result) {
             is HermesResult.Success -> {
+                val reply = ChatMessage(nextId++, ChatRole.AGENT, result.reply)
                 val messages = state.messages.withStatus(messageId, MessageStatus.SENT).toMutableList()
                 // Direkt hinter die zugehörige Frage: Inzwischen gesprochene Nachrichten stehen schon darunter.
-                messages.add(index + 1, ChatMessage(nextId++, ChatRole.AGENT, result.reply))
-                state.copy(messages = messages)
+                messages.add(index + 1, reply)
+                state.copy(messages = messages, newestMessageId = reply.id)
             }
             is HermesResult.Failure -> state.copy(
                 messages = state.messages.withStatus(messageId, MessageStatus.FAILED),
                 error = result.error,
+                errorId = state.errorId + 1,
             )
         }
     }

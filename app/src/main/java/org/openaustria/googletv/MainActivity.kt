@@ -66,16 +66,18 @@ class MainActivity : FragmentActivity() {
     private lateinit var chatErrorRetry: Button
     private lateinit var chatErrorSettings: Button
 
-    private val chatAdapter = ChatAdapter()
+    private lateinit var chatLayoutManager: LinearLayoutManager
+
+    private val chatAdapter = ChatAdapter { chatViewModel.retry(it.id) }
 
     /** Zuletzt gerenderter Overlay-Zustand; Fokus wird nur bei einem Zustandswechsel neu gesetzt. */
     private var renderedOverlay: VoiceOverlay? = null
 
-    /** Anzahl gerenderter Nachrichten; Autoscroll nur, wenn eine neue hinzukommt. */
-    private var renderedMessageCount = 0
+    /** Zuletzt gerenderte [ChatUiState.newestMessageId]; Autoscroll nur, wenn eine Nachricht hinzukommt. */
+    private var renderedNewestMessageId: Long? = null
 
-    /** Zuletzt gerenderter Chat-Fehler; Fokus wird nur bei einer neuen Meldung gesetzt. */
-    private var renderedChatError: HermesError? = null
+    /** Zuletzt gerenderte [ChatUiState.errorId]; Fokus wird nur bei einer neuen Meldung gesetzt. */
+    private var renderedChatErrorId: Long? = null
 
     private val permissionTracker = PermissionDenialTracker()
 
@@ -125,7 +127,8 @@ class MainActivity : FragmentActivity() {
         chatErrorRetry = findViewById(R.id.chat_error_retry)
         chatErrorSettings = findViewById(R.id.chat_error_settings)
 
-        chatList.layoutManager = LinearLayoutManager(this)
+        chatLayoutManager = LinearLayoutManager(this)
+        chatList.layoutManager = chatLayoutManager
         chatList.adapter = chatAdapter
 
         voiceButton.setOnClickListener { onVoiceRequested() }
@@ -288,17 +291,19 @@ class MainActivity : FragmentActivity() {
 
     private fun renderChat(state: ChatUiState) {
         val messages = state.messages
-        val grew = messages.size > renderedMessageCount
-        renderedMessageCount = messages.size
+        val newestId = state.newestMessageId
+        val added = newestId != renderedNewestMessageId
+        renderedNewestMessageId = newestId
         chatAdapter.submitList(messages) {
-            if (grew) scrollToNewest()
+            if (added) scrollToMessage(messages.indexOfFirst { it.id == newestId })
         }
         chatEmpty.isVisible = messages.isEmpty()
         chatStatus.isVisible = state.isSending
 
         val error = state.error
-        val errorChanged = error != renderedChatError
-        renderedChatError = error
+        // Über die ID statt den Fehlerwert: Derselbe Fehler zweimal hintereinander ist eine neue Meldung.
+        val errorChanged = state.errorId != renderedChatErrorId
+        renderedChatErrorId = state.errorId
         // Vor dem Ausblenden abfragen: Danach hat die Leiste den Fokus schon verloren.
         val errorBarHadFocus = chatErrorBar.hasFocus()
         chatErrorBar.isVisible = error != null
@@ -314,14 +319,18 @@ class MainActivity : FragmentActivity() {
         }
     }
 
-    /** Autoscroll zur neuesten Nachricht; stand der Fokus im Verlauf, wandert er mit. */
-    private fun scrollToNewest() {
-        val last = chatAdapter.itemCount - 1
-        if (last < 0) return
+    /**
+     * Autoscroll zur zuletzt hinzugekommenen Nachricht ([ChatUiState.newestMessageId]); stand der Fokus
+     * im Verlauf, wandert er mit. Die Oberkante liegt bündig oben: Eine Antwort, die höher als der Verlauf
+     * ist, liest man von Anfang an und blättert per D-Pad weiter (ChatAdapter). Kürzere Nachrichten am
+     * Ende rückt der LayoutManager an den unteren Rand, darüber bleibt der Verlauf sichtbar.
+     */
+    private fun scrollToMessage(position: Int) {
+        if (position < 0) return
         val focusInList = chatList.hasFocus()
-        chatList.scrollToPosition(last)
+        chatLayoutManager.scrollToPositionWithOffset(position, 0)
         if (focusInList) {
-            chatList.post { chatList.findViewHolderForAdapterPosition(last)?.itemView?.requestFocus() }
+            chatList.post { chatList.findViewHolderForAdapterPosition(position)?.itemView?.requestFocus() }
         }
     }
 
@@ -360,6 +369,7 @@ class MainActivity : FragmentActivity() {
         HermesError.UNREACHABLE -> R.string.chat_error_unreachable
         HermesError.TIMEOUT -> R.string.chat_error_timeout
         HermesError.UNAUTHORIZED -> R.string.chat_error_unauthorized
+        HermesError.INVALID_TOKEN -> R.string.chat_error_invalid_token
         HermesError.SERVER -> R.string.chat_error_server
         HermesError.INVALID_RESPONSE -> R.string.chat_error_invalid_response
     }
@@ -369,6 +379,11 @@ class MainActivity : FragmentActivity() {
         const val KEY_DENIED_WITHOUT_RATIONALE = "denied_without_rationale"
 
         /** Fehler, bei denen vermutlich Adresse oder Token falsch sind: Einstellungen anbieten und fokussieren. */
-        val SETTINGS_ERRORS = setOf(HermesError.NOT_CONFIGURED, HermesError.UNREACHABLE, HermesError.UNAUTHORIZED)
+        val SETTINGS_ERRORS = setOf(
+            HermesError.NOT_CONFIGURED,
+            HermesError.UNREACHABLE,
+            HermesError.UNAUTHORIZED,
+            HermesError.INVALID_TOKEN,
+        )
     }
 }

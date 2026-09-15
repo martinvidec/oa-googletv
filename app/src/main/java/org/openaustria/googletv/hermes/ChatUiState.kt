@@ -6,6 +6,16 @@ data class ChatUiState(
     val messages: List<ChatMessage> = emptyList(),
     /** Fehler der letzten fehlgeschlagenen Anfrage; `null`, solange keine Meldung offen ist. */
     val error: HermesError? = null,
+    /**
+     * Zählt jede neue Fehlermeldung hoch. Die UI setzt den Fokus bei jeder neuen Meldung auf deren
+     * Aktion — auch wenn derselbe Fehler direkt noch einmal auftritt und [error] gleich bleibt.
+     */
+    val errorId: Long = 0,
+    /**
+     * Zuletzt hinzugekommene Nachricht: neue oder erneut gesendete Nachricht, sonst die letzte Antwort.
+     * Ziel des Autoscrolls; `null`, solange der Verlauf leer ist.
+     */
+    val newestMessageId: Long? = null,
 ) {
     /** Mindestens eine Nachricht wartet noch auf die Antwort des Agents. */
     val isSending: Boolean

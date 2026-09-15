@@ -14,7 +14,8 @@ import org.openaustria.googletv.hermes.SharedPreferencesSettingsStore
 
 /**
  * Verbindungsdaten zum Hermes-Gateway: Endpoint-URL und Token. Bedienung per D-Pad; die Felder
- * öffnen beim Auswählen die Bildschirmtastatur. Gespeichert wird nur eine gültige Adresse.
+ * öffnen beim Auswählen die Bildschirmtastatur. Gespeichert werden nur eine gültige Adresse und ein
+ * Token, das als HTTP-Header gesendet werden kann.
  */
 class SettingsActivity : FragmentActivity() {
 
@@ -45,20 +46,23 @@ class SettingsActivity : FragmentActivity() {
 
     private fun save() {
         val endpoint = endpointInput.text.toString().trim()
-        when (HermesSettings.validateEndpoint(endpoint)) {
-            EndpointValidation.VALID -> {
-                store.save(HermesSettings(endpoint = endpoint, token = tokenInput.text.toString().trim()))
+        val token = tokenInput.text.toString().trim()
+        val validation = HermesSettings.validateEndpoint(endpoint)
+        when {
+            validation == EndpointValidation.EMPTY -> showError(R.string.settings_error_endpoint_empty, endpointInput)
+            validation == EndpointValidation.INVALID -> showError(R.string.settings_error_endpoint_invalid, endpointInput)
+            !HermesSettings.isValidToken(token) -> showError(R.string.settings_error_token_invalid, tokenInput)
+            else -> {
+                store.save(HermesSettings(endpoint = endpoint, token = token))
                 Toast.makeText(this, R.string.settings_saved, Toast.LENGTH_SHORT).show()
                 finish()
             }
-            EndpointValidation.EMPTY -> showError(R.string.settings_error_endpoint_empty)
-            EndpointValidation.INVALID -> showError(R.string.settings_error_endpoint_invalid)
         }
     }
 
-    private fun showError(message: Int) {
+    private fun showError(message: Int, field: EditText) {
         errorText.setText(message)
         errorText.isVisible = true
-        endpointInput.requestFocus()
+        field.requestFocus()
     }
 }

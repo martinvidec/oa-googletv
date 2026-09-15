@@ -31,6 +31,12 @@ data class HermesSettings(
         }
 
         /**
+         * Das Token geht als HTTP-Header raus und darf deshalb nur druckbares ASCII enthalten; leer ist
+         * erlaubt. Umlaute oder ein mitkopierter Zeilenumbruch würden den Request sonst scheitern lassen.
+         */
+        fun isValidToken(raw: String): Boolean = raw.trim().all { it in ' '..'~' }
+
+        /**
          * Chat-Completions-URL des Gateways. Akzeptiert die Basis-URL, eine URL mit `/v1` oder die
          * vollständige URL — so funktioniert auch eine aus der Gateway-Doku kopierte Adresse.
          */

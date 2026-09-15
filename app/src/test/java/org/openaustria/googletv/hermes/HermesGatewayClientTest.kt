@@ -1,11 +1,13 @@
 package org.openaustria.googletv.hermes
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import java.io.IOException
 import java.net.SocketTimeoutException
@@ -69,6 +71,29 @@ class HermesGatewayClientTest {
     fun `missing endpoint fails without request`() {
         assertEquals(HermesResult.Failure(HermesError.NOT_CONFIGURED), send(HermesSettings()))
         assertEquals(0, transport.calls)
+    }
+
+    @Test
+    fun `token with characters not allowed in a header is reported as token problem without request`() {
+        assertEquals(HermesResult.Failure(HermesError.INVALID_TOKEN), send(settings.copy(token = "gehe\nim")))
+        assertEquals(HermesResult.Failure(HermesError.INVALID_TOKEN), send(settings.copy(token = "geheimö")))
+        assertEquals(0, transport.calls)
+    }
+
+    @Test
+    fun `unexpected runtime exceptions are reported as unreachable instead of crashing`() {
+        transport.respond = { throw IllegalArgumentException("port out of range") }
+        assertEquals(HermesResult.Failure(HermesError.UNREACHABLE), send())
+        transport.respond = { throw IllegalStateException("Already connected") }
+        assertEquals(HermesResult.Failure(HermesError.UNREACHABLE), send())
+        transport.respond = { throw SecurityException("Permission denied") }
+        assertEquals(HermesResult.Failure(HermesError.UNREACHABLE), send())
+    }
+
+    @Test
+    fun `cancellation is not swallowed`() {
+        transport.respond = { throw CancellationException("abgebrochen") }
+        assertThrows(CancellationException::class.java) { send() }
     }
 
     @Test

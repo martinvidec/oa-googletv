@@ -57,13 +57,18 @@ dem Hermes-Gateway. Code unter `app/src/main/java/org/openaustria/googletv/herme
   gehen die letzten 20 Nachrichten des Verlaufs mit.
 - **Klartext-HTTP:** `usesCleartextTraffic` ist aktiv, weil das Gateway im Heimnetz meist ohne TLS
   läuft. Das Token geht dann unverschlüsselt durchs Netz — außerhalb des Heimnetzes `https://` nutzen.
-- **Bedienung:** Die Nachrichten im Verlauf sind fokussierbar und per D-Pad durchblätterbar; bei
-  jeder neuen Nachricht scrollt der Verlauf ans Ende (ein Fokus im Verlauf wandert mit). Neue
-  Nachrichten während einer laufenden Anfrage werden der Reihe nach gesendet.
-- **Fehler:** Kein Netzwerk, Gateway nicht erreichbar, Zeitüberschreitung, ungültiges Token
-  (HTTP 401/403), Serverfehler und unlesbare Antworten erscheinen als Meldungsleiste mit
-  „Erneut senden", bei Adress-/Token-Problemen zusätzlich „Einstellungen öffnen" (fokussiert).
-  Die betroffene Nachricht bleibt als „nicht gesendet" im Verlauf. Zurück blendet die Meldung aus.
+- **Bedienung:** Die Nachrichten im Verlauf sind fokussierbar und per D-Pad durchblätterbar. Ist
+  eine Antwort höher als der sichtbare Verlauf, blättert D-Pad hoch/runter erst seitenweise durch
+  sie, danach springt der Fokus weiter. Bei jeder neuen Nachricht oder Antwort scrollt der Verlauf
+  zu ihr, Oberkante bündig (ein Fokus im Verlauf wandert mit). Neue Nachrichten während einer
+  laufenden Anfrage werden der Reihe nach gesendet.
+- **Fehler:** Kein Netzwerk, Gateway nicht erreichbar, Zeitüberschreitung, abgelehntes Token
+  (HTTP 401/403), Token mit ungültigen Zeichen, Serverfehler und unlesbare Antworten erscheinen als
+  Meldungsleiste mit „Erneut senden", bei Adress-/Token-Problemen zusätzlich „Einstellungen öffnen"
+  (fokussiert, auch wenn derselbe Fehler direkt noch einmal auftritt). Die betroffene Nachricht
+  bleibt als „nicht gesendet" im Verlauf; OK auf ihr sendet sie erneut. Eine erneut gesendete
+  Nachricht wandert ans Ende des Verlaufs, die Antwort erscheint direkt darunter. Zurück blendet die
+  Meldung aus.
 - **Tests:** Client mit Fake-Transport, ViewModel mit Fake-Client (`app/src/test/.../hermes/`).
 
 ## Eckdaten

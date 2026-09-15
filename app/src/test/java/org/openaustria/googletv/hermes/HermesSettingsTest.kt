@@ -34,6 +34,15 @@ class HermesSettingsTest {
     }
 
     @Test
+    fun `token must be printable ascii, empty is allowed`() {
+        assertTrue(HermesSettings.isValidToken(""))
+        assertTrue(HermesSettings.isValidToken(" sk-Abc_123.xyz~ "))
+        assertFalse(HermesSettings.isValidToken("abc\ndef"))
+        assertFalse(HermesSettings.isValidToken("abc\tdef"))
+        assertFalse(HermesSettings.isValidToken("geheimö"))
+    }
+
+    @Test
     fun `chat completions url accepts base, v1 and full url`() {
         val expected = "http://hermes.local:8642/v1/chat/completions"
         assertEquals(expected, HermesSettings.chatCompletionsUrl("http://hermes.local:8642"))
