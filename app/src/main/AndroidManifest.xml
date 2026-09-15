@@ -9,6 +9,21 @@
         android:name="android.hardware.touchscreen"
         android:required="false" />
 
+    <!-- Spracheingabe: Mikrofon wird zur Laufzeit angefragt. RECORD_AUDIO impliziert sonst
+         android.hardware.microphone als Pflicht und filtert TVs ohne eingebautes Mikrofon aus. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature
+        android:name="android.hardware.microphone"
+        android:required="false" />
+
+    <!-- Paket-Sichtbarkeit (API 30+): ohne diesen Eintrag meldet
+         SpeechRecognizer.isRecognitionAvailable() immer false. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="true"
         android:banner="@drawable/banner"

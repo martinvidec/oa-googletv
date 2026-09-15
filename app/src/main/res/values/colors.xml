@@ -2,4 +2,7 @@
 <resources>
     <color name="oa_background">#FF1A1A2E</color>
     <color name="oa_accent">#FFE63946</color>
+    <color name="oa_text_secondary">#B3FFFFFF</color>
+    <color name="oa_overlay_scrim">#E6000000</color>
+    <color name="oa_button_idle">#33FFFFFF</color>
 </resources>

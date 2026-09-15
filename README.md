@@ -1,9 +1,37 @@
 # oa-googletv
 Google TV-App für Open-Austria Agents
 
-Android-TV-App (Leanback) in Kotlin. Das Projekt ist derzeit ein Skelett: eine Activity,
-die über den `LEANBACK_LAUNCHER` im TV-Launcher erscheint, mit Banner und App-Icon
-(beides Platzhalter-Vektorgrafiken).
+Android-TV-App (Leanback) in Kotlin. Eine Activity, die über den `LEANBACK_LAUNCHER` im
+TV-Launcher erscheint (Banner und App-Icon sind Platzhalter-Vektorgrafiken), mit
+Spracheingabe.
+
+## Spracheingabe
+
+Code unter `app/src/main/java/org/openaustria/googletv/voice/`:
+
+| Datei | Aufgabe |
+|---|---|
+| `VoiceRecognizer.kt` | Schnittstelle zur Spracherkennung, Fehlerklassen (`VoiceError`) |
+| `AndroidVoiceRecognizer.kt` | Implementierung über den systemweiten `SpeechRecognizer` |
+| `VoiceUiState.kt` | UI-Zustand: Overlay-Zustand und zuletzt erkannter Text |
+| `VoiceViewModel.kt` | Zustandsmaschine, stellt den Zustand als `StateFlow` bereit |
+
+`MainActivity` ist reine UI: Sie rendert den Zustand, fragt `RECORD_AUDIO` zur Laufzeit an
+und leitet Fernbedienungs-Eingaben weiter.
+
+- **Bedienung nur per D-Pad:** „Spracheingabe" auswählen oder die Such-Taste der Fernbedienung
+  drücken. Im Overlay liegt der Fokus je nach Zustand auf dem Mikrofon-Orb bzw. der
+  Primäraktion; der Hintergrund ist für den Fokus gesperrt. Zurück schließt das Overlay. Die
+  Such-Taste wird bei offenem Overlay verworfen, damit sie nicht die Systemsuche startet.
+- **Berechtigung:** Wird der Mikrofonzugriff abgelehnt, bietet das Overlay „Mikrofon erlauben"
+  an; nach endgültiger Ablehnung „Einstellungen öffnen". Ein per Zurück geschlossener
+  Berechtigungsdialog gilt noch nicht als endgültig (`PermissionDenialTracker`). Meldet der
+  Erkennungsdienst trotz erteilter Berechtigung fehlenden Mikrofonzugriff, zeigt das Overlay
+  einen eigenen Fehler mit „Einstellungen öffnen" statt erneut anzufragen.
+- **Manifest:** `android.hardware.microphone` ist optional, damit TVs ohne eingebautes Mikrofon
+  nicht ausgefiltert werden. Der `<queries>`-Eintrag für `android.speech.RecognitionService`
+  ist ab API 30 nötig, sonst meldet `SpeechRecognizer.isRecognitionAvailable()` immer `false`.
+- **Tests:** `./gradlew testDebugUnitTest` (ViewModel mit Fake-Recognizer, läuft auch in der CI).
 
 ## Eckdaten
 
