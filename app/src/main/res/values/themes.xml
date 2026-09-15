@@ -14,4 +14,16 @@
         <item name="android:minHeight">56dp</item>
         <item name="android:focusable">true</item>
     </style>
+
+    <!-- Eingabefeld für D-Pad-Bedienung: Fokus als Akzent-Rahmen, aus der Entfernung lesbare Schrift. -->
+    <style name="Widget.OaGoogleTv.TvInput" parent="@android:style/Widget.Material.EditText">
+        <item name="android:background">@drawable/bg_tv_input</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:textColorHint">@color/oa_text_secondary</item>
+        <item name="android:textSize">22sp</item>
+        <item name="android:paddingStart">20dp</item>
+        <item name="android:paddingEnd">20dp</item>
+        <item name="android:minHeight">56dp</item>
+        <item name="android:singleLine">true</item>
+    </style>
 </resources>

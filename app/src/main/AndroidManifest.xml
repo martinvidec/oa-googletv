@@ -16,6 +16,10 @@
         android:name="android.hardware.microphone"
         android:required="false" />
 
+    <!-- Hermes-Gateway: Anfragen senden und vorher prüfen, ob überhaupt ein Netzwerk da ist. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <!-- Paket-Sichtbarkeit (API 30+): ohne diesen Eintrag meldet
          SpeechRecognizer.isRecognitionAvailable() immer false. -->
     <queries>
@@ -24,13 +28,18 @@
         </intent>
     </queries>
 
+    <!-- usesCleartextTraffic: Das Hermes-Gateway läuft typischerweise im Heimnetz ohne TLS (http://).
+         Backup-Regeln: Das Gateway-Token wird nicht mitgesichert. -->
     <application
         android:allowBackup="true"
         android:banner="@drawable/banner"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.OaGoogleTv">
+        android:theme="@style/Theme.OaGoogleTv"
+        android:usesCleartextTraffic="true">
 
         <activity
             android:name=".MainActivity"
@@ -42,6 +51,12 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:windowSoftInputMode="stateHidden|adjustResize" />
     </application>
 
 </manifest>

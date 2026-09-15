@@ -5,4 +5,7 @@
     <color name="oa_text_secondary">#B3FFFFFF</color>
     <color name="oa_overlay_scrim">#E6000000</color>
     <color name="oa_button_idle">#33FFFFFF</color>
+    <color name="oa_chat_user">#FF2E3A59</color>
+    <color name="oa_chat_agent">#FF2A2A40</color>
+    <color name="oa_error_background">#FF5C1A22</color>
 </resources>

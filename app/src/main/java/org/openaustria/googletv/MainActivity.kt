@@ -23,7 +23,13 @@ import androidx.leanback.widget.SpeechOrbView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.launch
+import org.openaustria.googletv.hermes.ChatAdapter
+import org.openaustria.googletv.hermes.ChatUiState
+import org.openaustria.googletv.hermes.ChatViewModel
+import org.openaustria.googletv.hermes.HermesError
 import org.openaustria.googletv.voice.PermissionDenialTracker
 import org.openaustria.googletv.voice.VoiceError
 import org.openaustria.googletv.voice.VoiceOverlay
@@ -33,17 +39,18 @@ import org.openaustria.googletv.voice.VoiceViewModel
 /**
  * Einstiegspunkt der TV-App, gestartet über den LEANBACK_LAUNCHER.
  *
- * Reine UI-Schicht: rendert [VoiceUiState], leitet Fernbedienungs-Eingaben an das
- * [VoiceViewModel] weiter und fragt die Mikrofon-Berechtigung an. Bedienung ausschließlich
- * per D-Pad: Jeder Overlay-Zustand setzt den Fokus auf sein primäres Element.
+ * Reine UI-Schicht: rendert [VoiceUiState] und [ChatUiState], leitet Fernbedienungs-Eingaben an die
+ * ViewModels weiter und fragt die Mikrofon-Berechtigung an. Jedes erkannte Sprach-Ergebnis geht als
+ * Nachricht an Hermes. Bedienung ausschließlich per D-Pad: Jeder Overlay-Zustand und jede
+ * Fehlermeldung setzt den Fokus auf ihr primäres Element.
  */
 class MainActivity : FragmentActivity() {
 
     private val viewModel: VoiceViewModel by viewModels { VoiceViewModel.Factory }
+    private val chatViewModel: ChatViewModel by viewModels { ChatViewModel.Factory }
 
     private lateinit var mainContent: ViewGroup
     private lateinit var voiceButton: Button
-    private lateinit var recognizedText: TextView
     private lateinit var voiceOverlay: View
     private lateinit var voiceOrb: SpeechOrbView
     private lateinit var voiceStatus: TextView
@@ -51,8 +58,24 @@ class MainActivity : FragmentActivity() {
     private lateinit var voiceAction: Button
     private lateinit var voiceClose: Button
 
+    private lateinit var chatList: RecyclerView
+    private lateinit var chatEmpty: TextView
+    private lateinit var chatStatus: TextView
+    private lateinit var chatErrorBar: View
+    private lateinit var chatErrorText: TextView
+    private lateinit var chatErrorRetry: Button
+    private lateinit var chatErrorSettings: Button
+
+    private val chatAdapter = ChatAdapter()
+
     /** Zuletzt gerenderter Overlay-Zustand; Fokus wird nur bei einem Zustandswechsel neu gesetzt. */
     private var renderedOverlay: VoiceOverlay? = null
+
+    /** Anzahl gerenderter Nachrichten; Autoscroll nur, wenn eine neue hinzukommt. */
+    private var renderedMessageCount = 0
+
+    /** Zuletzt gerenderter Chat-Fehler; Fokus wird nur bei einer neuen Meldung gesetzt. */
+    private var renderedChatError: HermesError? = null
 
     private val permissionTracker = PermissionDenialTracker()
 
@@ -72,6 +95,12 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    private val dismissChatErrorOnBack = object : OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() {
+            chatViewModel.dismissError()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -82,23 +111,40 @@ class MainActivity : FragmentActivity() {
 
         mainContent = findViewById(R.id.main_content)
         voiceButton = findViewById(R.id.voice_button)
-        recognizedText = findViewById(R.id.recognized_text)
         voiceOverlay = findViewById(R.id.voice_overlay)
         voiceOrb = findViewById(R.id.voice_orb)
         voiceStatus = findViewById(R.id.voice_status)
         voiceTranscript = findViewById(R.id.voice_transcript)
         voiceAction = findViewById(R.id.voice_action)
         voiceClose = findViewById(R.id.voice_close)
+        chatList = findViewById(R.id.chat_list)
+        chatEmpty = findViewById(R.id.chat_empty)
+        chatStatus = findViewById(R.id.chat_status)
+        chatErrorBar = findViewById(R.id.chat_error_bar)
+        chatErrorText = findViewById(R.id.chat_error_text)
+        chatErrorRetry = findViewById(R.id.chat_error_retry)
+        chatErrorSettings = findViewById(R.id.chat_error_settings)
+
+        chatList.layoutManager = LinearLayoutManager(this)
+        chatList.adapter = chatAdapter
 
         voiceButton.setOnClickListener { onVoiceRequested() }
+        findViewById<Button>(R.id.settings_button).setOnClickListener { openHermesSettings() }
         voiceOrb.setOnOrbClickedListener { onOverlayAction() }
         voiceAction.setOnClickListener { onOverlayAction() }
         voiceClose.setOnClickListener { viewModel.dismissOverlay() }
+        chatErrorRetry.setOnClickListener { chatViewModel.retry() }
+        chatErrorSettings.setOnClickListener { openHermesSettings() }
+        findViewById<Button>(R.id.chat_error_dismiss).setOnClickListener { chatViewModel.dismissError() }
+        // Zuletzt registrierte Callbacks gewinnen: Ein offenes Overlay schließt vor der Fehlermeldung.
+        onBackPressedDispatcher.addCallback(this, dismissChatErrorOnBack)
         onBackPressedDispatcher.addCallback(this, closeOverlayOnBack)
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.uiState.collect { render(it) }
+                launch { viewModel.uiState.collect { render(it) } }
+                launch { viewModel.results.collect { chatViewModel.send(it) } }
+                launch { chatViewModel.uiState.collect { renderChat(it) } }
             }
         }
     }
@@ -160,6 +206,10 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    private fun openHermesSettings() {
+        startActivity(Intent(this, SettingsActivity::class.java))
+    }
+
     private fun openAppSettings() {
         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null))
         try {
@@ -179,8 +229,6 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun render(state: VoiceUiState) {
-        recognizedText.text = state.recognizedText.ifEmpty { getString(R.string.voice_result_empty) }
-
         val overlay = state.overlay
         val visible = overlay !is VoiceOverlay.Hidden
         voiceOverlay.isVisible = visible
@@ -238,6 +286,45 @@ class MainActivity : FragmentActivity() {
         if (overlayChanged) moveFocus(overlay)
     }
 
+    private fun renderChat(state: ChatUiState) {
+        val messages = state.messages
+        val grew = messages.size > renderedMessageCount
+        renderedMessageCount = messages.size
+        chatAdapter.submitList(messages) {
+            if (grew) scrollToNewest()
+        }
+        chatEmpty.isVisible = messages.isEmpty()
+        chatStatus.isVisible = state.isSending
+
+        val error = state.error
+        val errorChanged = error != renderedChatError
+        renderedChatError = error
+        // Vor dem Ausblenden abfragen: Danach hat die Leiste den Fokus schon verloren.
+        val errorBarHadFocus = chatErrorBar.hasFocus()
+        chatErrorBar.isVisible = error != null
+        dismissChatErrorOnBack.isEnabled = error != null
+
+        if (error != null) {
+            chatErrorText.setText(chatErrorMessage(error))
+            val settingsHelp = error in SETTINGS_ERRORS
+            chatErrorSettings.isVisible = settingsHelp
+            if (errorChanged) (if (settingsHelp) chatErrorSettings else chatErrorRetry).requestFocus()
+        } else if (errorBarHadFocus) {
+            voiceButton.requestFocus()
+        }
+    }
+
+    /** Autoscroll zur neuesten Nachricht; stand der Fokus im Verlauf, wandert er mit. */
+    private fun scrollToNewest() {
+        val last = chatAdapter.itemCount - 1
+        if (last < 0) return
+        val focusInList = chatList.hasFocus()
+        chatList.scrollToPosition(last)
+        if (focusInList) {
+            chatList.post { chatList.findViewHolderForAdapterPosition(last)?.itemView?.requestFocus() }
+        }
+    }
+
     private fun moveFocus(overlay: VoiceOverlay) {
         val target = when (overlay) {
             VoiceOverlay.Hidden -> voiceButton
@@ -267,8 +354,21 @@ class MainActivity : FragmentActivity() {
         VoiceError.OTHER -> R.string.voice_error_other
     }
 
+    private fun chatErrorMessage(error: HermesError): Int = when (error) {
+        HermesError.NOT_CONFIGURED -> R.string.chat_error_not_configured
+        HermesError.OFFLINE -> R.string.chat_error_offline
+        HermesError.UNREACHABLE -> R.string.chat_error_unreachable
+        HermesError.TIMEOUT -> R.string.chat_error_timeout
+        HermesError.UNAUTHORIZED -> R.string.chat_error_unauthorized
+        HermesError.SERVER -> R.string.chat_error_server
+        HermesError.INVALID_RESPONSE -> R.string.chat_error_invalid_response
+    }
+
     private companion object {
         const val KEY_RATIONALE_BEFORE_REQUEST = "rationale_before_request"
         const val KEY_DENIED_WITHOUT_RATIONALE = "denied_without_rationale"
+
+        /** Fehler, bei denen vermutlich Adresse oder Token falsch sind: Einstellungen anbieten und fokussieren. */
+        val SETTINGS_ERRORS = setOf(HermesError.NOT_CONFIGURED, HermesError.UNREACHABLE, HermesError.UNAUTHORIZED)
     }
 }

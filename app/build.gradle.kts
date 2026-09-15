@@ -45,6 +45,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.leanback)
+    implementation(libs.androidx.recyclerview)
 
     testImplementation(libs.junit)
+    testImplementation(libs.org.json)
 }

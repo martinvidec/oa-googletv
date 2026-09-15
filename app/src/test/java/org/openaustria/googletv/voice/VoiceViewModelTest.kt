@@ -1,5 +1,9 @@
 package org.openaustria.googletv.voice
 
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -53,6 +57,32 @@ class VoiceViewModelTest {
         viewModel.onResult("hallo welt")
         assertEquals(VoiceOverlay.Hidden, overlay)
         assertEquals("hallo welt", viewModel.uiState.value.recognizedText)
+    }
+
+    @Test
+    fun `every recognized result is emitted once, also repeated text`() {
+        viewModel.startListening()
+        viewModel.onResult("hallo")
+        viewModel.startListening()
+        viewModel.onResult("hallo")
+
+        runBlocking {
+            assertEquals(listOf("hallo", "hallo"), viewModel.results.take(2).toList())
+        }
+    }
+
+    @Test
+    fun `blank or late results are not emitted`() {
+        viewModel.startListening()
+        viewModel.onResult(" ")
+        viewModel.dismissOverlay()
+        viewModel.onResult("zu spät")
+        viewModel.startListening()
+        viewModel.onResult("gültig")
+
+        runBlocking {
+            assertEquals("gültig", viewModel.results.first())
+        }
     }
 
     @Test
