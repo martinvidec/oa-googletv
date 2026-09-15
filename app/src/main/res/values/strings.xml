@@ -6,8 +6,6 @@
     <!-- Spracheingabe -->
     <string name="voice_start">Spracheingabe</string>
     <string name="voice_hint">Auswählen oder die Such-Taste der Fernbedienung drücken</string>
-    <string name="voice_result_label">Erkannter Text</string>
-    <string name="voice_result_empty">Noch keine Eingabe</string>
     <string name="voice_orb_description">Mikrofon</string>
     <string name="voice_preparing">Einen Moment …</string>
     <string name="voice_listening">Ich höre zu …</string>
@@ -26,4 +24,37 @@
     <string name="voice_error_not_available">Auf diesem Gerät ist keine Spracherkennung verfügbar.</string>
     <string name="voice_error_permission">Der Spracherkennungsdienst hat keinen Zugriff auf das Mikrofon. Bitte in den Einstellungen die Berechtigungen der Spracherkennung und den Mikrofonzugriff prüfen.</string>
     <string name="voice_error_other">Bei der Spracherkennung ist ein Fehler aufgetreten.</string>
+
+    <!-- Chat mit Hermes -->
+    <string name="chat_empty">Noch keine Nachrichten. Sprich mit Hermes über die Spracheingabe.</string>
+    <string name="chat_sending">Hermes antwortet …</string>
+    <string name="chat_sender_user">Du</string>
+    <string name="chat_sender_user_pending">Du · wird gesendet …</string>
+    <string name="chat_sender_user_failed">Du · nicht gesendet – OK sendet erneut</string>
+    <string name="chat_sender_agent">Hermes</string>
+    <string name="chat_action_retry">Erneut senden</string>
+    <string name="chat_action_dismiss">Ausblenden</string>
+    <string name="chat_error_not_configured">Hermes ist noch nicht eingerichtet. Bitte Gateway-Adresse und Token in den Einstellungen eintragen.</string>
+    <string name="chat_error_offline">Keine Netzwerkverbindung. Bitte das Netzwerk des Fernsehers prüfen.</string>
+    <string name="chat_error_unreachable">Das Hermes-Gateway ist nicht erreichbar. Bitte Gateway-Adresse und Netzwerk prüfen.</string>
+    <string name="chat_error_timeout">Hermes hat nicht rechtzeitig geantwortet. Bitte erneut senden.</string>
+    <string name="chat_error_unauthorized">Zugriff verweigert: Das Token ist ungültig oder fehlt. Bitte in den Einstellungen prüfen.</string>
+    <string name="chat_error_invalid_token">Das Token enthält ungültige Zeichen, z. B. Umlaute oder einen Zeilenumbruch. Bitte in den Einstellungen prüfen.</string>
+    <string name="chat_error_server">Das Hermes-Gateway meldet einen Fehler. Bitte später erneut senden.</string>
+    <string name="chat_error_invalid_response">Die Antwort von Hermes konnte nicht gelesen werden.</string>
+
+    <!-- Einstellungen -->
+    <string name="settings_open">Einstellungen</string>
+    <string name="settings_title">Hermes-Verbindung</string>
+    <string name="settings_endpoint_label">Gateway-Adresse</string>
+    <string name="settings_endpoint_hint">http://192.168.1.10:8642</string>
+    <string name="settings_token_label">Token</string>
+    <string name="settings_token_hint">Leer lassen, wenn das Gateway kein Token verlangt</string>
+    <string name="settings_note">Die App sendet an &lt;Adresse&gt;/v1/chat/completions. Bei http:// geht das Token unverschlüsselt durchs Netzwerk – nur im Heimnetz verwenden.</string>
+    <string name="settings_save">Speichern</string>
+    <string name="settings_cancel">Abbrechen</string>
+    <string name="settings_saved">Einstellungen gespeichert</string>
+    <string name="settings_error_endpoint_empty">Bitte eine Gateway-Adresse eintragen.</string>
+    <string name="settings_error_endpoint_invalid">Die Adresse muss mit http:// oder https:// beginnen, z. B. http://192.168.1.10:8642</string>
+    <string name="settings_error_token_invalid">Das Token darf nur Buchstaben ohne Umlaute, Ziffern und Satzzeichen enthalten, ohne Zeilenumbruch.</string>
 </resources>

@@ -4,9 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 
 /**
@@ -19,6 +22,14 @@ class VoiceViewModel(
 
     private val _uiState = MutableStateFlow(VoiceUiState())
     val uiState: StateFlow<VoiceUiState> = _uiState.asStateFlow()
+
+    private val _results = Channel<String>(Channel.BUFFERED)
+
+    /**
+     * Jedes erkannte Ergebnis genau einmal, z. B. zum Senden an Hermes. Anders als
+     * [VoiceUiState.recognizedText] geht hier auch ein wiederholter gleicher Satz nicht verloren.
+     */
+    val results: Flow<String> = _results.receiveAsFlow()
 
     init {
         recognizer.setListener(this)
@@ -80,6 +91,7 @@ class VoiceViewModel(
             setOverlay(VoiceOverlay.Error(VoiceError.NO_MATCH))
         } else {
             _uiState.value = VoiceUiState(overlay = VoiceOverlay.Hidden, recognizedText = text)
+            _results.trySend(text)
         }
     }
 
