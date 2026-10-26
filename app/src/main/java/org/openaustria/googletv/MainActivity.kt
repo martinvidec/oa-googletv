@@ -23,7 +23,13 @@ import androidx.leanback.widget.SpeechOrbView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.launch
+import org.openaustria.googletv.hermes.ChatAdapter
+import org.openaustria.googletv.hermes.ChatUiState
+import org.openaustria.googletv.hermes.ChatViewModel
+import org.openaustria.googletv.hermes.HermesError
 import org.openaustria.googletv.voice.PermissionDenialTracker
 import org.openaustria.googletv.voice.VoiceError
 import org.openaustria.googletv.voice.VoiceOverlay
@@ -33,17 +39,18 @@ import org.openaustria.googletv.voice.VoiceViewModel
 /**
  * Einstiegspunkt der TV-App, gestartet über den LEANBACK_LAUNCHER.
  *
- * Reine UI-Schicht: rendert [VoiceUiState], leitet Fernbedienungs-Eingaben an das
- * [VoiceViewModel] weiter und fragt die Mikrofon-Berechtigung an. Bedienung ausschließlich
- * per D-Pad: Jeder Overlay-Zustand setzt den Fokus auf sein primäres Element.
+ * Reine UI-Schicht: rendert [VoiceUiState] und [ChatUiState], leitet Fernbedienungs-Eingaben an die
+ * ViewModels weiter und fragt die Mikrofon-Berechtigung an. Jedes erkannte Sprach-Ergebnis geht als
+ * Nachricht an Hermes. Bedienung ausschließlich per D-Pad: Jeder Overlay-Zustand und jede
+ * Fehlermeldung setzt den Fokus auf ihr primäres Element.
  */
 class MainActivity : FragmentActivity() {
 
     private val viewModel: VoiceViewModel by viewModels { VoiceViewModel.Factory }
+    private val chatViewModel: ChatViewModel by viewModels { ChatViewModel.Factory }
 
     private lateinit var mainContent: ViewGroup
     private lateinit var voiceButton: Button
-    private lateinit var recognizedText: TextView
     private lateinit var voiceOverlay: View
     private lateinit var voiceOrb: SpeechOrbView
     private lateinit var voiceStatus: TextView
@@ -51,8 +58,26 @@ class MainActivity : FragmentActivity() {
     private lateinit var voiceAction: Button
     private lateinit var voiceClose: Button
 
+    private lateinit var chatList: RecyclerView
+    private lateinit var chatEmpty: TextView
+    private lateinit var chatStatus: TextView
+    private lateinit var chatErrorBar: View
+    private lateinit var chatErrorText: TextView
+    private lateinit var chatErrorRetry: Button
+    private lateinit var chatErrorSettings: Button
+
+    private lateinit var chatLayoutManager: LinearLayoutManager
+
+    private val chatAdapter = ChatAdapter { chatViewModel.retry(it.id) }
+
     /** Zuletzt gerenderter Overlay-Zustand; Fokus wird nur bei einem Zustandswechsel neu gesetzt. */
     private var renderedOverlay: VoiceOverlay? = null
+
+    /** Zuletzt gerenderte [ChatUiState.newestMessageId]; Autoscroll nur, wenn eine Nachricht hinzukommt. */
+    private var renderedNewestMessageId: Long? = null
+
+    /** Zuletzt gerenderte [ChatUiState.errorId]; Fokus wird nur bei einer neuen Meldung gesetzt. */
+    private var renderedChatErrorId: Long? = null
 
     private val permissionTracker = PermissionDenialTracker()
 
@@ -72,6 +97,12 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    private val dismissChatErrorOnBack = object : OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() {
+            chatViewModel.dismissError()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -82,23 +113,41 @@ class MainActivity : FragmentActivity() {
 
         mainContent = findViewById(R.id.main_content)
         voiceButton = findViewById(R.id.voice_button)
-        recognizedText = findViewById(R.id.recognized_text)
         voiceOverlay = findViewById(R.id.voice_overlay)
         voiceOrb = findViewById(R.id.voice_orb)
         voiceStatus = findViewById(R.id.voice_status)
         voiceTranscript = findViewById(R.id.voice_transcript)
         voiceAction = findViewById(R.id.voice_action)
         voiceClose = findViewById(R.id.voice_close)
+        chatList = findViewById(R.id.chat_list)
+        chatEmpty = findViewById(R.id.chat_empty)
+        chatStatus = findViewById(R.id.chat_status)
+        chatErrorBar = findViewById(R.id.chat_error_bar)
+        chatErrorText = findViewById(R.id.chat_error_text)
+        chatErrorRetry = findViewById(R.id.chat_error_retry)
+        chatErrorSettings = findViewById(R.id.chat_error_settings)
+
+        chatLayoutManager = LinearLayoutManager(this)
+        chatList.layoutManager = chatLayoutManager
+        chatList.adapter = chatAdapter
 
         voiceButton.setOnClickListener { onVoiceRequested() }
+        findViewById<Button>(R.id.settings_button).setOnClickListener { openHermesSettings() }
         voiceOrb.setOnOrbClickedListener { onOverlayAction() }
         voiceAction.setOnClickListener { onOverlayAction() }
         voiceClose.setOnClickListener { viewModel.dismissOverlay() }
+        chatErrorRetry.setOnClickListener { chatViewModel.retry() }
+        chatErrorSettings.setOnClickListener { openHermesSettings() }
+        findViewById<Button>(R.id.chat_error_dismiss).setOnClickListener { chatViewModel.dismissError() }
+        // Zuletzt registrierte Callbacks gewinnen: Ein offenes Overlay schließt vor der Fehlermeldung.
+        onBackPressedDispatcher.addCallback(this, dismissChatErrorOnBack)
         onBackPressedDispatcher.addCallback(this, closeOverlayOnBack)
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.uiState.collect { render(it) }
+                launch { viewModel.uiState.collect { render(it) } }
+                launch { viewModel.results.collect { chatViewModel.send(it) } }
+                launch { chatViewModel.uiState.collect { renderChat(it) } }
             }
         }
     }
@@ -160,6 +209,10 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    private fun openHermesSettings() {
+        startActivity(Intent(this, SettingsActivity::class.java))
+    }
+
     private fun openAppSettings() {
         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null))
         try {
@@ -179,8 +232,6 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun render(state: VoiceUiState) {
-        recognizedText.text = state.recognizedText.ifEmpty { getString(R.string.voice_result_empty) }
-
         val overlay = state.overlay
         val visible = overlay !is VoiceOverlay.Hidden
         voiceOverlay.isVisible = visible
@@ -238,6 +289,51 @@ class MainActivity : FragmentActivity() {
         if (overlayChanged) moveFocus(overlay)
     }
 
+    private fun renderChat(state: ChatUiState) {
+        val messages = state.messages
+        val newestId = state.newestMessageId
+        val added = newestId != renderedNewestMessageId
+        renderedNewestMessageId = newestId
+        chatAdapter.submitList(messages) {
+            if (added) scrollToMessage(messages.indexOfFirst { it.id == newestId })
+        }
+        chatEmpty.isVisible = messages.isEmpty()
+        chatStatus.isVisible = state.isSending
+
+        val error = state.error
+        // Über die ID statt den Fehlerwert: Derselbe Fehler zweimal hintereinander ist eine neue Meldung.
+        val errorChanged = state.errorId != renderedChatErrorId
+        renderedChatErrorId = state.errorId
+        // Vor dem Ausblenden abfragen: Danach hat die Leiste den Fokus schon verloren.
+        val errorBarHadFocus = chatErrorBar.hasFocus()
+        chatErrorBar.isVisible = error != null
+        dismissChatErrorOnBack.isEnabled = error != null
+
+        if (error != null) {
+            chatErrorText.setText(chatErrorMessage(error))
+            val settingsHelp = error in SETTINGS_ERRORS
+            chatErrorSettings.isVisible = settingsHelp
+            if (errorChanged) (if (settingsHelp) chatErrorSettings else chatErrorRetry).requestFocus()
+        } else if (errorBarHadFocus) {
+            voiceButton.requestFocus()
+        }
+    }
+
+    /**
+     * Autoscroll zur zuletzt hinzugekommenen Nachricht ([ChatUiState.newestMessageId]); stand der Fokus
+     * im Verlauf, wandert er mit. Die Oberkante liegt bündig oben: Eine Antwort, die höher als der Verlauf
+     * ist, liest man von Anfang an und blättert per D-Pad weiter (ChatAdapter). Kürzere Nachrichten am
+     * Ende rückt der LayoutManager an den unteren Rand, darüber bleibt der Verlauf sichtbar.
+     */
+    private fun scrollToMessage(position: Int) {
+        if (position < 0) return
+        val focusInList = chatList.hasFocus()
+        chatLayoutManager.scrollToPositionWithOffset(position, 0)
+        if (focusInList) {
+            chatList.post { chatList.findViewHolderForAdapterPosition(position)?.itemView?.requestFocus() }
+        }
+    }
+
     private fun moveFocus(overlay: VoiceOverlay) {
         val target = when (overlay) {
             VoiceOverlay.Hidden -> voiceButton
@@ -267,8 +363,27 @@ class MainActivity : FragmentActivity() {
         VoiceError.OTHER -> R.string.voice_error_other
     }
 
+    private fun chatErrorMessage(error: HermesError): Int = when (error) {
+        HermesError.NOT_CONFIGURED -> R.string.chat_error_not_configured
+        HermesError.OFFLINE -> R.string.chat_error_offline
+        HermesError.UNREACHABLE -> R.string.chat_error_unreachable
+        HermesError.TIMEOUT -> R.string.chat_error_timeout
+        HermesError.UNAUTHORIZED -> R.string.chat_error_unauthorized
+        HermesError.INVALID_TOKEN -> R.string.chat_error_invalid_token
+        HermesError.SERVER -> R.string.chat_error_server
+        HermesError.INVALID_RESPONSE -> R.string.chat_error_invalid_response
+    }
+
     private companion object {
         const val KEY_RATIONALE_BEFORE_REQUEST = "rationale_before_request"
         const val KEY_DENIED_WITHOUT_RATIONALE = "denied_without_rationale"
+
+        /** Fehler, bei denen vermutlich Adresse oder Token falsch sind: Einstellungen anbieten und fokussieren. */
+        val SETTINGS_ERRORS = setOf(
+            HermesError.NOT_CONFIGURED,
+            HermesError.UNREACHABLE,
+            HermesError.UNAUTHORIZED,
+            HermesError.INVALID_TOKEN,
+        )
     }
 }

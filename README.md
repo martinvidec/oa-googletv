@@ -33,6 +33,44 @@ und leitet Fernbedienungs-Eingaben weiter.
   ist ab API 30 nötig, sonst meldet `SpeechRecognizer.isRecognitionAvailable()` immer `false`.
 - **Tests:** `./gradlew testDebugUnitTest` (ViewModel mit Fake-Recognizer, läuft auch in der CI).
 
+## Hermes-Chat
+
+Jedes erkannte Sprach-Ergebnis (`VoiceViewModel.results`) geht als Nachricht an den Hermes-Agent;
+Frage und Antwort erscheinen im Chat-Verlauf. Kein eigenes Backend (D6): Die App spricht direkt mit
+dem Hermes-Gateway. Code unter `app/src/main/java/org/openaustria/googletv/hermes/`:
+
+| Datei | Aufgabe |
+|---|---|
+| `HermesSettings.kt` | Endpoint + Token, Validierung der Adresse, Aufbau der Request-URL |
+| `HermesSettingsStore.kt` | Persistenz in SharedPreferences (`hermes_settings`, vom Backup ausgenommen) |
+| `HermesClient.kt` | Schnittstelle zum Agent, Ergebnis- und Fehlerklassen (`HermesError`) |
+| `HermesGatewayClient.kt` | Implementierung über die OpenAI-kompatible API des Gateways |
+| `HttpTransport.kt` | HTTP-POST über `HttpURLConnection` (Timeouts: 10 s Verbindung, 90 s Antwort) |
+| `AndroidNetworkMonitor.kt` | Prüft vor dem Senden, ob das Gerät ein Netzwerk hat |
+| `ChatUiState.kt`, `ChatViewModel.kt` | Verlauf, Sende-Warteschlange, Fehler und „Erneut senden" |
+| `ChatAdapter.kt` | RecyclerView-Zeilen des Verlaufs |
+
+- **Einrichtung:** Auf dem Startbildschirm „Einstellungen" → Gateway-Adresse (z. B.
+  `http://192.168.1.10:8642`) und Token eintragen → „Speichern". Die App sendet an
+  `<Adresse>/v1/chat/completions` (Angabe mit `/v1` oder der vollständigen URL geht auch) mit
+  `Authorization: Bearer <Token>`; ohne Token entfällt der Header. Die API ist zustandslos, deshalb
+  gehen die letzten 20 Nachrichten des Verlaufs mit.
+- **Klartext-HTTP:** `usesCleartextTraffic` ist aktiv, weil das Gateway im Heimnetz meist ohne TLS
+  läuft. Das Token geht dann unverschlüsselt durchs Netz — außerhalb des Heimnetzes `https://` nutzen.
+- **Bedienung:** Die Nachrichten im Verlauf sind fokussierbar und per D-Pad durchblätterbar. Ist
+  eine Antwort höher als der sichtbare Verlauf, blättert D-Pad hoch/runter erst seitenweise durch
+  sie, danach springt der Fokus weiter. Bei jeder neuen Nachricht oder Antwort scrollt der Verlauf
+  zu ihr, Oberkante bündig (ein Fokus im Verlauf wandert mit). Neue Nachrichten während einer
+  laufenden Anfrage werden der Reihe nach gesendet.
+- **Fehler:** Kein Netzwerk, Gateway nicht erreichbar, Zeitüberschreitung, abgelehntes Token
+  (HTTP 401/403), Token mit ungültigen Zeichen, Serverfehler und unlesbare Antworten erscheinen als
+  Meldungsleiste mit „Erneut senden", bei Adress-/Token-Problemen zusätzlich „Einstellungen öffnen"
+  (fokussiert, auch wenn derselbe Fehler direkt noch einmal auftritt). Die betroffene Nachricht
+  bleibt als „nicht gesendet" im Verlauf; OK auf ihr sendet sie erneut. Eine erneut gesendete
+  Nachricht wandert ans Ende des Verlaufs, die Antwort erscheint direkt darunter. Zurück blendet die
+  Meldung aus.
+- **Tests:** Client mit Fake-Transport, ViewModel mit Fake-Client (`app/src/test/.../hermes/`).
+
 ## Eckdaten
 
 | | |

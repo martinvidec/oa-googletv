@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/oa_background"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:paddingTop="40dp"
+        android:paddingBottom="40dp">
+
+        <LinearLayout
+            android:layout_width="720dp"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_title"
+                android:textColor="@android:color/white"
+                android:textSize="32sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:labelFor="@+id/settings_endpoint"
+                android:text="@string/settings_endpoint_label"
+                android:textColor="@color/oa_text_secondary"
+                android:textSize="18sp" />
+
+            <EditText
+                android:id="@+id/settings_endpoint"
+                style="@style/Widget.OaGoogleTv.TvInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:hint="@string/settings_endpoint_hint"
+                android:imeOptions="actionNext"
+                android:importantForAutofill="no"
+                android:inputType="textUri"
+                android:nextFocusDown="@+id/settings_token">
+
+                <requestFocus />
+            </EditText>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:labelFor="@id/settings_token"
+                android:text="@string/settings_token_label"
+                android:textColor="@color/oa_text_secondary"
+                android:textSize="18sp" />
+
+            <EditText
+                android:id="@id/settings_token"
+                style="@style/Widget.OaGoogleTv.TvInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:hint="@string/settings_token_hint"
+                android:imeOptions="actionDone"
+                android:importantForAutofill="no"
+                android:inputType="textPassword"
+                android:nextFocusUp="@id/settings_endpoint"
+                android:nextFocusDown="@+id/settings_save" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/settings_note"
+                android:textColor="@color/oa_text_secondary"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/settings_error"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:textColor="@color/oa_accent"
+                android:textSize="20sp"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="28dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@id/settings_save"
+                    style="@style/Widget.OaGoogleTv.TvButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="16dp"
+                    android:nextFocusUp="@id/settings_token"
+                    android:nextFocusRight="@+id/settings_cancel"
+                    android:text="@string/settings_save" />
+
+                <Button
+                    android:id="@id/settings_cancel"
+                    style="@style/Widget.OaGoogleTv.TvButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:nextFocusLeft="@id/settings_save"
+                    android:nextFocusUp="@id/settings_token"
+                    android:text="@string/settings_cancel" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>
